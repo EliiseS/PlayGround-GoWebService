@@ -13,3 +13,7 @@
 
 # VS code setup
 .vscode/launch.json
+
+# Kubeflow
+kubeflow101/.cache
+kubeflow101/kustomize
