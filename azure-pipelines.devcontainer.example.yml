@@ -1,0 +1,60 @@
+trigger:
+  branches:
+    include:
+      - 'master'
+  paths:
+    exclude:
+      - '/**/*.md'
+
+pr:
+  branches:
+    include:
+      - '*'
+  paths:
+    exclude:
+      - '/**/*.md'
+
+variables:
+  - group: module-creation-pipeline-variable-group
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - template: templates/terraform-setup.yml
+
+  - powershell: |
+      docker build -f .devcontainer/Dockerfile -t devcontainer .
+    env:
+      GO_VERSION: $(goVersion)
+    displayName: 'Install Pester module'
+
+  - powershell: |
+      docker build -f .devcontainer/Dockerfile -t devcontainer .
+    env:
+      GO_VERSION: $(goVersion)
+    displayName: 'Build devcontainer'
+
+  - powershell: |
+      docker run `
+        --entrypoint /opt/microsoft/powershell/7/pwsh `
+        -v $(System.DefaultWorkingDirectory):/src `
+        --workdir /src `
+        devcontainer `
+        -c Invoke-Pester ./scripts/
+    displayName: Run unit tests in devcontainer
+
+  - powershell: |
+      docker run `
+        -e AZURE_DEVOPS_EXT_PAT=$(AZDO_PERSONAL_ACCESS_TOKEN)`
+        -e AZDO_PERSONAL_ACCESS_TOKEN=$(AZDO_PERSONAL_ACCESS_TOKEN) `
+        -e AZDO_ORG_SERVICE_URL=$(AZDO_ORG_SERVICE_URL) `
+        --entrypoint /opt/microsoft/powershell/7/pwsh `
+        -v $(System.DefaultWorkingDirectory):/src `
+        --workdir /src `
+        devcontainer `
+        -c Invoke-Pester ./test/
+    env:
+      AZDO_PERSONAL_ACCESS_TOKEN: $(AZDO_PERSONAL_ACCESS_TOKEN)
+      AZDO_ORG_SERVICE_URL: $(AZDO_ORG_SERVICE_URL)
+    displayName: Run integration tests in devcontainer
